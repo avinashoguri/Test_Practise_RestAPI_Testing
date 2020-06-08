@@ -17,7 +17,7 @@ import com.sun.net.httpserver.Filter.Chain;
 
 public class Jira_Issue_Test {
 
-	public static void main(String a[]) {
+	public static void main(String[] args) {
 		RestAssured.baseURI="http://localhost:8080";
 
 
@@ -25,11 +25,13 @@ public class Jira_Issue_Test {
 		String username="admin";
 		String password="admin";
 		String Key="10028";
+		String updateComment="yes, I am updated";
+
 
 
 
 		//Login JIRA
-		String respone=given().log().all().header("Content-Type","application/json")
+		String responce=given().log().all().header("Content-Type","application/json")
 				.body("{\r\n" + 
 						"    \"username\": \""+username+"\",\r\n" + 
 						"    \"password\": \""+password+"\"\r\n" + 
@@ -58,31 +60,61 @@ public class Jira_Issue_Test {
 						"}")
 				.filter(section).when().post("/rest/api/2/issue")
 				.then().assertThat().statusCode(201).extract().response().asString();
-		
-		
-		JsonPath js=new JsonPath(responce1);
-		Key=js.get("id");
-		*/
-		//Updating Issue
-		given().log().all().pathParam("Key", Key).header("Content-Type","application/json")
-		.body("{\r\n" + 
-				"    \"body\": \"  UPDATING comment 2  issue \",\r\n" + 
-				"    \"visibility\": {\r\n" + 
-				"        \"type\": \"role\",\r\n" + 
-				"        \"value\": \"Administrators\"\r\n" + 
-				"    }\r\n" + 
-				"}")
-		.filter(section).when().post("/rest/api/2/issue/{Key}/comment")
-		.then().assertThat().statusCode(201);
-		
-		//Attaching File
-		
-		given().log().all().header("X-Atlassian-Token","no-check").filter(section)
-	    .pathParam("Key", Key)
-	    .header("Content-Type","multipart/form-data")
-	    .multiPart("file",new File("C:\\Users\\Malempati Parvathi\\Desktop\\original\\Test_Practise_RestAPI_Testing\\jira.txt"))
 
-	    .when().post("/rest/api/2/issue/{Key}/attachments").then().log().all()
-	    .assertThat().statusCode(200);
+
+		JsonPath js1=new JsonPath(responce1);
+		Key=js.get("id");
+		 */
+
+		//Updating Issue
+		String responce2=given().log().all().pathParam("Key", Key).header("Content-Type","application/json")
+				.body("{\r\n" + 
+						"    \"body\": \""+updateComment+"\",\r\n" + 
+						"    \"visibility\": {\r\n" + 
+						"        \"type\": \"role\",\r\n" + 
+						"        \"value\": \"Administrators\"\r\n" + 
+						"    }\r\n" + 
+						"}")
+				.filter(section).when().post("/rest/api/2/issue/{Key}/comment")
+				.then().assertThat().statusCode(201).extract().response().asString();
+
+		JsonPath js2=new JsonPath(responce2);
+		String commentId=js2.get("id");
+
+		//Attaching File
+
+		given().log().all().header("X-Atlassian-Token","no-check").filter(section)
+		.pathParam("Key", Key)
+		.header("Content-Type","multipart/form-data")
+		.multiPart("file",new File("C:\\Users\\Malempati Parvathi\\Desktop\\original\\Test_Practise_RestAPI_Testing\\jira.txt"))
+
+		.when().post("/rest/api/2/issue/{Key}/attachments").then().log().all()
+		.assertThat().statusCode(200);
+
+
+		//get issue
+
+		String responce3=given()
+				.pathParam("Key", Key).filter(section)
+				//.queryParam("fields", "comment")
+				.when().get("/rest/api/2/issue/{Key}")
+				.then().assertThat().statusCode(200).extract().response().asString();
+
+		System.out.println(responce3);
+		JsonPath js3=new JsonPath(responce3);
+		int commentIdscount=js3.getInt("fields.comment.comments.size()");
+		System.out.println(commentIdscount);
+		for(int i=0;i<=commentIdscount;i++) {
+			String commentIssueId=js3.getString("fields.comment.comments["+i+"].id").toString();
+			System.out.println(commentIssueId);
+			if(commentIssueId.equalsIgnoreCase(commentId)) {
+				String commentMessage=js3.getString("fields.comment.comments["+i+"].body").toString();
+				System.out.println(commentMessage);
+				Assert.assertEquals(commentMessage, updateComment);
+			}
+
+		}
+
+
 	}
 }
